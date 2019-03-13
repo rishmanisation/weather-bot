@@ -1,10 +1,11 @@
 from flask import Flask, request, make_response
+import datetime
 import os
 import json
 import pyowm
 
 app = Flask(__name__)
-api_key = '9545837c17264ab0938215537191003'
+api_key = 'f6582b4d5cad0e9d264cdc29cb229779'
 owm = pyowm.OWM(api_key)
 
 #geting and sending response to dialogflow
@@ -16,18 +17,20 @@ def webhook():
     print(json.dumps(req, indent=4))
     
     res = processRequest(req)
-
     res = json.dumps(res, indent=4)
     print(res)
+
     r = make_response(res)
     r.headers['Content-Type'] = 'application/json'
     return r
 
 #processing the request from dialogflow
 def processRequest(req):   
-    result = req.get("result")
+    result = req.get("queryResult")
     parameters = result.get("parameters")
     city = parameters.get("geo-city")
+    date_orig = parameters.get("date")
+
     observation = owm.weather_at_place(city)
     weather = observation.get_weather()
 
@@ -41,11 +44,18 @@ def processRequest(req):
 
     status = weather.get_detailed_status()
 
-    output = 'Current conditions in ' + city + ' is ' + status + ' with a low of ' + cel_min + ' C or ' + far_min + ' F' + ' and a high of ' + cel_max + ' C or ' + far_max + ' F.'
+    if date_orig is None or date_orig == "":
+        output = 'Today '
+    else:
+        output = 'On ' + date_orig[:10]
+    output = output + ' in ' + city + ', the forecast is for ' + status + ' with a low of ' + round_temp(cel_min) + ' C or ' + round_temp(far_min) + ' F' + ' and a high of ' + round_temp(cel_max) + ' C or ' + round_temp(far_max) + ' F.'
     
     return {
-        'fullfilmentText': output
+        'fulfillmentText': output,
     }
-    
+
+def round_temp(temp):
+    return str(round(float(temp)))
+
 if __name__ == '__main__':
     app.run(debug=True)
